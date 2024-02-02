@@ -1,13 +1,24 @@
-use super::raw::{AsRawFd, FromRawFd, RawFd};
+use std::mem::forget;
+use super::raw::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 pub struct OwnedFd {
     fd: RawFd,
 }
 
+
 impl AsRawFd for OwnedFd {
     #[inline]
     fn as_raw_fd(&self) -> RawFd {
         self.fd
+    }
+}
+
+impl Drop for OwnedFd {
+    #[inline]
+    fn drop(&mut self) {
+        unsafe {
+            let _ = libc::close(self.fd);
+        }
     }
 }
 
@@ -17,6 +28,15 @@ impl FromRawFd for OwnedFd {
         assert_ne!(fd, u32::MAX as RawFd);
         // SAFETY: we just asserted that the value is in the valid range and
         // isn't `-1` (the only value bigger than `0xFF_FF_FF_FF` unsigned)
-        unsafe { Self { fd } }
+        Self { fd }
+    }
+}
+
+impl IntoRawFd for OwnedFd {
+    #[inline]
+    fn into_raw_fd(self) -> RawFd {
+        let fd = self.fd;
+        forget(self);
+        fd
     }
 }

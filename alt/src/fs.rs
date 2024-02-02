@@ -1,5 +1,5 @@
 use crate::sys::fs as fs_imp;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 pub struct File {
@@ -7,6 +7,12 @@ pub struct File {
 }
 
 pub struct OpenOptions(fs_imp::OpenOptions);
+
+impl File {
+    pub fn close(self) -> io::Result<()> {
+        self.inner.close()
+    }
+}
 
 impl Read for File {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -21,6 +27,27 @@ impl Read for &File {
     }
 }
 
+impl Write for File {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        (&*self).write(buf)
+    }
+
+    #[inline]
+    fn flush(&mut self) -> io::Result<()> {
+        (&*self).flush()
+    }
+}
+
+impl Write for &File {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 impl OpenOptions {
     pub fn new() -> Self {
         OpenOptions(fs_imp::OpenOptions::new())
@@ -28,6 +55,21 @@ impl OpenOptions {
 
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.0.read(read);
+        self
+    }
+
+    pub fn write(&mut self, write: bool) -> &mut Self {
+        self.0.write(write);
+        self
+    }
+
+    pub fn truncate(&mut self, truncate: bool) -> &mut Self {
+        self.0.truncate(truncate);
+        self
+    }
+
+    pub fn create(&mut self, create: bool) -> &mut Self {
+        self.0.create(create);
         self
     }
 
@@ -42,5 +84,11 @@ impl OpenOptions {
 
     fn _open(&self, path: &Path) -> io::Result<File> {
         fs_imp::File::open(path, &self.0).map(|inner| File { inner })
+    }
+}
+
+impl Default for OpenOptions {
+    fn default() -> Self {
+        OpenOptions::new()
     }
 }

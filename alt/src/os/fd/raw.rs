@@ -5,5 +5,13 @@ pub trait AsRawFd {
 }
 
 pub trait FromRawFd {
+    /// # Safety
+    ///
+    /// The `fd` passed in must be an [owned file descriptor][io-safety];
+    /// in particular, it must be open.
     unsafe fn from_raw_fd(fd: RawFd) -> Self;
+}
+
+pub trait IntoRawFd {
+    fn into_raw_fd(self) -> RawFd;
 }

@@ -9,6 +9,9 @@ pub struct File(FileDesc);
 
 pub struct OpenOptions {
     read: bool,
+    write: bool,
+    truncate: bool,
+    create: bool,
     mode: mode_t,
 }
 
@@ -21,7 +24,8 @@ impl File {
     }
 
     pub fn open_c(path: &CStr, opts: &OpenOptions) -> io::Result<File> {
-        let flags = opts.get_access_mode()?;
+        let flags = opts.get_access_mode()?
+            | opts.get_creation_mode()?;
         let fd = unsafe {
             libc::open(path.as_ptr(), flags, opts.mode as c_int)
         };
@@ -32,8 +36,21 @@ impl File {
         }
     }
 
+    pub fn close(self) -> io::Result<()> {
+        self.0.close()
+    }
+    
     pub fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
+    }
+
+    pub fn write(&self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    #[inline]
+    pub fn flush(&self) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -41,6 +58,9 @@ impl OpenOptions {
     pub fn new() -> Self {
         OpenOptions {
             read: false,
+            write: false,
+            truncate: false,
+            create: false,
             mode: 0o666,
         }
     }
@@ -49,14 +69,53 @@ impl OpenOptions {
         self.read = read;
     }
 
+    pub fn write(&mut self, write: bool) {
+        self.write = write;
+    }
+
+    pub fn truncate(&mut self, truncate: bool) {
+        self.truncate = truncate;
+    }
+
+    pub fn create(&mut self, create: bool) {
+        self.create = create;
+    }
+
     pub fn mode(&mut self, mode: u32) {
         self.mode = mode as mode_t;
     }
 
     fn get_access_mode(&self) -> io::Result<c_int> {
-        match (self.read, ) {
-            (true, ) => Ok(libc::O_RDONLY),
-            (false, ) => Ok(libc::O_WRONLY),
+        match (self.read, self.write, ) {
+            (true, false, ) => Ok(libc::O_RDONLY),
+            (false, true, ) => Ok(libc::O_WRONLY),
+            (true, true, ) => Ok(libc::O_RDWR),
+            (false, false, ) =>
+                Err(io::Error::from_raw_os_error(libc::EINVAL)),
         }
+    }
+
+    fn get_creation_mode(&self) -> io::Result<c_int> {
+        match (self.write, ) {
+            (true, ) => {}
+            (false, ) => {
+                if self.truncate || self.create {
+                    return Err(io::Error::from_raw_os_error(libc::EINVAL));
+                }
+            }
+        }
+
+        Ok(match (self.create, self.truncate, ) {
+            (false, false, ) => 0,
+            (true, false, ) => libc::O_CREAT,
+            (false, true, ) => libc::O_TRUNC,
+            (true, true, ) => libc::O_CREAT | libc::O_TRUNC,
+        })
+    }
+}
+
+impl Default for OpenOptions {
+    fn default() -> Self {
+        OpenOptions::new()
     }
 }
