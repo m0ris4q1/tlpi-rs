@@ -1,7 +1,9 @@
 mod errors;
 mod error_functions;
+mod get_num;
 
 pub use error_functions::*;
+pub use get_num::*;
 
 #[macro_export]
 macro_rules! va_fn {

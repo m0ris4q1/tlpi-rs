@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 alt = { path = "../alt" }
 anyhow = "1.0"
+libc = { path = "../libc" }
 tlpi = { path = "../tlpi" }

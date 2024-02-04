@@ -1,12 +1,10 @@
 use crate::sys::fs as fs_imp;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 pub struct File {
     inner: fs_imp::File,
 }
-
-pub struct OpenOptions(fs_imp::OpenOptions);
 
 impl File {
     pub fn close(self) -> io::Result<()> {
@@ -24,6 +22,18 @@ impl Read for &File {
     #[inline]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.inner.read(buf)
+    }
+}
+
+impl Seek for File {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        (&*self).seek(pos)
+    }
+}
+
+impl Seek for &File {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.inner.seek(pos)
     }
 }
 
@@ -47,6 +57,8 @@ impl Write for &File {
         self.inner.flush()
     }
 }
+
+pub struct OpenOptions(fs_imp::OpenOptions);
 
 impl OpenOptions {
     pub fn new() -> Self {

@@ -1,8 +1,8 @@
-use crate::os::fd::{FromRawFd};
+use crate::os::fd::{AsRawFd, FromRawFd, RawFd};
 use crate::sys::fd::FileDesc;
-use libc::{c_int, mode_t};
+use libc::{c_int, mode_t, off64_t};
 use std::ffi::{CStr, CString};
-use std::io;
+use std::io::{self, SeekFrom};
 use std::path::Path;
 
 pub struct File(FileDesc);
@@ -51,6 +51,29 @@ impl File {
     #[inline]
     pub fn flush(&self) -> io::Result<()> {
         Ok(())
+    }
+
+    pub fn seek(&self, pos: SeekFrom) -> io::Result<u64> {
+        let (whence, pos) = match pos {
+            SeekFrom::Start(off) => (libc::SEEK_SET, off as i64),
+            SeekFrom::End(off) => (libc::SEEK_END, off),
+            SeekFrom::Current(off) => (libc::SEEK_CUR, off),
+        };
+        let n = unsafe {
+            libc::lseek64(self.as_raw_fd(), pos as off64_t, whence)
+        };
+        if n == -1 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(n as u64)
+        }
+    }
+}
+
+impl AsRawFd for File {
+    #[inline]
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.as_raw_fd()
     }
 }
 
